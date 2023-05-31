@@ -4,9 +4,8 @@
 #   @authors : Orel Adivi and Daniel Noor
 #
 import ast
-import pathlib
-import argparse
 from functools import partial
+from pathlib import Path
 
 from src.io.InputOutputPairReader import InputOutputPairReader
 from src.io.SearchSpaceReader import SearchSpaceReader
@@ -15,61 +14,48 @@ from src.io.MetricReader import MetricReader
 from src.synthesizer.BestEffortProgramGenerator import BestEffortProgramGenerator
 
 
-def main() -> None:
+def synthesize(input_output_file: str, search_space_file: str,
+               metric: str = 'DefaultMetric', metric_parameter: str = '',
+               tactic: str = 'match', tactic_parameter: str = '0',
+               max_height: int = 2, statistics: bool = False):
     """
-    Parse command line arguments and run the synthesizer based on the given parameters.
+    Run the synthesizer based on the given parameters.
 
+    :param input_output_file: the root for the input-output file
+    :param search_space_file: the root for the search space file
+    :param metric: the metric for the synthesizer (default = 'DefaultMetric')
+    :param metric_parameter: the parameter for the metric
+    :param tactic: the tactic for the synthesizer (default = 'height')
+    :param tactic_parameter: the parameter for the tactic
+    :param max_height: the max height for the synthesizer to search (default = 2)
+    :param statistics: whether to present statistics
     :return: None
     """
-    cl_parser = argparse.ArgumentParser(description='CorSys - Synthesizing best-effort python expressions while '
-                                                    'weighting the chance for mistakes in given user outputs.',
-                                        epilog='For help with the synthesizer please read SUPPORT.md .',
-                                        allow_abbrev=False)
-    cl_parser.add_argument('-io', '--input-output', action='store', type=pathlib.Path, required=True,
-                           help='the root for the input-output file', dest='input_output_file')
-    cl_parser.add_argument('-s', '--search-space', action='store', type=pathlib.Path, required=True,
-                           help='the root for the search space file', dest='search_space_file')
-    cl_parser.add_argument('-m', '--metric', action='store', type=str, default='DefaultMetric',
-                           choices=['DefaultMetric', 'NormalMetric', 'CalculationMetric', 'VectorMetric',
-                                    'HammingMetric', 'LevenshteinMetric', 'PermutationMetric', 'KeyboardMetric',
-                                    'HomophoneMetric'],
-                           help='the metric for the synthesizer (default = \'DefaultMetric\')', dest='metric')
-    cl_parser.add_argument('-mp', '--metric-parameter', action='store', type=str, default='',
-                           help='the parameter for the metric', dest='metric_parameter')
-    cl_parser.add_argument('-t', '--tactic', action='store', type=str, default='match',
-                           choices=['match', 'accuracy', 'height', 'top', 'best_by_height', 'penalized_height',
-                                    'interrupt'],
-                           help='the tactic for the synthesizer (default = \'height\')', dest='tactic')
-    cl_parser.add_argument('-tp', '--tactic-parameter', action='store', type=str, default='0',
-                           help='the parameter for the tactic', dest='tactic_parameter')
-    cl_parser.add_argument('-mh', '--max-height', action='store', type=int, default=2,
-                           help='the max height for the synthesizer to search (default = 2)', dest='max_height')
-    cl_parser.add_argument('--statistics', action='store_const', const=True, default=False,
-                           help='whether to present statistics', dest='statistics')
-    arguments = cl_parser.parse_args()
+    input_output_file = Path(input_output_file)
+    search_space_file = Path(search_space_file)
+    
+    input_output_pairs = InputOutputPairReader.readCSV(input_output_file)
+    search_space = SearchSpaceReader.readTXT(search_space_file)
+    metric = MetricReader.parseMetric(metric, metric_parameter)
+    generator = BestEffortProgramGenerator(search_space, max_height)
 
-    input_output_pairs = InputOutputPairReader.readCSV(arguments.input_output_file)
-    search_space = SearchSpaceReader.readTXT(arguments.search_space_file)
-    metric = MetricReader.parseMetric(arguments.metric, arguments.metric_parameter)
-    generator = BestEffortProgramGenerator(search_space, arguments.max_height)
-
-    if arguments.tactic == 'match':
+    if tactic == 'match':
         generation_function = partial(generator.findBestEffortMatchProgram,
-                                      error_sum=eval(arguments.tactic_parameter))
-    elif arguments.tactic == 'accuracy':
+                                      error_sum=eval(tactic_parameter))
+    elif tactic == 'accuracy':
         generation_function = partial(generator.findBestEffortAccuracyProgram,
-                                      error_rate=eval(arguments.tactic_parameter))
-    elif arguments.tactic == 'height':
+                                      error_rate=eval(tactic_parameter))
+    elif tactic == 'height':
         generation_function = partial(generator.findBestEffortByHeightProgram)
-    elif arguments.tactic == 'top':
+    elif tactic == 'top':
         generation_function = partial(generator.findBestEffortPrograms,
-                                      programs=eval(arguments.tactic_parameter))
-    elif arguments.tactic == 'best_by_height':
+                                      programs=eval(tactic_parameter))
+    elif tactic == 'best_by_height':
         generation_function = partial(generator.findBestEffortByHeightPrograms)
-    elif arguments.tactic == 'penalized_height':
+    elif tactic == 'penalized_height':
         generation_function = partial(generator.findBestEffortPrioritizingHeightProgram,
-                                      penalty=eval(arguments.tactic_parameter))
-    elif arguments.tactic == 'interrupt':
+                                      penalty=eval(tactic_parameter))
+    elif tactic == 'interrupt':
         generation_function = partial(generator.findBestEffortUntilInterruptProgram)
     else:
         assert False
@@ -79,20 +65,17 @@ def main() -> None:
     result = generation_function(inputs, outputs, metric=metric)
     if not isinstance(result, list):
         result = [result]
+    
+    programs = []
+    
     for program in result:
         if program is None:
             print('No valid program was found.')
         else:
-            print(ast.unparse(program.node))
+            programs.append(ast.unparse(program.node))
 
-    if arguments.statistics:
-        print('')
+    if statistics:
         print(f'The synthesizer searched {generator.program_counter} programs '
-              f'up to height #{generator.current_height}.')
-
-
-if __name__ == '__main__':
-    """
-    If this file is run as the main file, it calls main function.
-    """
-    main()
+                        f'up to height #{generator.current_height}.')
+    
+    return programs
