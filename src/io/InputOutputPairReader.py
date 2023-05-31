@@ -5,6 +5,7 @@
 #
 import csv
 from pathlib import Path
+from typing import Iterator
 
 from src.objects.InputOutputPairs import InputOutputPairs
 
@@ -32,5 +33,17 @@ class InputOutputPairReader(object):
         for pair in file_content[1:]:
             inputs = {variable_names[i]: eval(value) for i, value in enumerate(pair[:-1])}
             output = eval(pair[-1])
+            result.addPair(inputs=inputs, output=output)
+        return result
+
+    @staticmethod
+    def readSimpleList(inputs_output_simple_list: Iterator[Iterator], variable_names: Iterator[str]) -> InputOutputPairs:
+        """
+        Read input-output examples in lists and convert it to an InputOutputPairs object.
+        """
+        result = InputOutputPairs()
+        for pair in inputs_output_simple_list:
+            inputs = {variable_names[i]: value for i, value in enumerate(pair[:-1])}
+            output = pair[-1]
             result.addPair(inputs=inputs, output=output)
         return result

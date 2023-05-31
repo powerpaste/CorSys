@@ -6,6 +6,7 @@
 import ast
 from functools import partial
 from pathlib import Path
+from typing import Iterator
 
 from src.io.InputOutputPairReader import InputOutputPairReader
 from src.io.SearchSpaceReader import SearchSpaceReader
@@ -14,7 +15,7 @@ from src.io.MetricReader import MetricReader
 from src.synthesizer.BestEffortProgramGenerator import BestEffortProgramGenerator
 
 
-def synthesize(input_output_file: str, search_space_file: str,
+def synthesize(input_output_simple_list: Iterator[Iterator], variable_names: Iterator[str], search_space_file: str,
                metric: str = 'DefaultMetric', metric_parameter: str = '',
                tactic: str = 'match', tactic_parameter: str = '0',
                max_height: int = 2, statistics: bool = False):
@@ -31,11 +32,9 @@ def synthesize(input_output_file: str, search_space_file: str,
     :param statistics: whether to present statistics
     :return: None
     """
-    input_output_file = Path(input_output_file)
-    search_space_file = Path(search_space_file)
     
-    input_output_pairs = InputOutputPairReader.readCSV(input_output_file)
-    search_space = SearchSpaceReader.readTXT(search_space_file)
+    input_output_pairs = InputOutputPairReader.readSimpleList(input_output_simple_list, variable_names)
+    search_space = SearchSpaceReader.readTXT(Path(search_space_file))
     metric = MetricReader.parseMetric(metric, metric_parameter)
     generator = BestEffortProgramGenerator(search_space, max_height)
 
