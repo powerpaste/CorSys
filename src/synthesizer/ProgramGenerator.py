@@ -93,6 +93,8 @@ class ProgramGenerator(object):
                             continue
                         except ValueError:
                             continue
+                        except AttributeError:
+                            continue
             observational_equivalence.moveNextHeightPrograms()
 
     def findProgram(self, assignments: list[dict], evaluations: list):

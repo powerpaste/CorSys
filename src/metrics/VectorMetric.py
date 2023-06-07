@@ -34,7 +34,8 @@ class VectorMetric(Metric):
         'hamming': (scipy.spatial.distance.hamming, True),
         'jaccard': (scipy.spatial.distance.jaccard, False),
         'russellrao': (scipy.spatial.distance.russellrao, False),
-        'yule': (scipy.spatial.distance.yule, False)
+        'yule': (scipy.spatial.distance.yule, False),
+        'cdist_hamming': (lambda u,v: scipy.spatial.distance.cdist(u,v,'hamming'), True)
     }
 
     @overrides
@@ -108,7 +109,10 @@ class VectorMetric(Metric):
         if min_length > 0:
             with warnings.catch_warnings():
                 warnings.simplefilter(action='ignore', category=FutureWarning)
-                shared_dist = min_length * self.__func(actual[0:min_length], expected[0:min_length])
+                if self.__func == scipy.spatial.distance.cdist:
+                    shared_dist = min_length * self.__func(np.array([actual[0:min_length]]), np.array([expected[0:min_length]])).item()
+                else:
+                    shared_dist = min_length * self.__func(actual[0:min_length], expected[0:min_length])
         else:
             shared_dist = 0
         if not self.__normalize:
